@@ -1,0 +1,51 @@
+workflows:
+  build-floatswitcher:
+    name: Build FloatSwitcher Dylib
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    scripts:
+      - name: Unzip project
+        script: |
+          unzip FloatSwitcher.zip -d extracted
+          cp -r extracted/FloatSwitcher/* ./
+
+      - name: Install Homebrew dependencies
+        script: |
+          brew install ldid dpkg make git
+
+      - name: Install Theos
+        script: |
+          git clone --recursive \
+            https://github.com/theos/theos.git $HOME/theos
+          echo "export THEOS=$HOME/theos" >> $HOME/.zshrc
+          echo "export PATH=$HOME/theos/bin:$PATH" \
+            >> $HOME/.zshrc
+
+      - name: Download iOS 16 SDK
+        script: |
+          mkdir -p $HOME/theos/sdks
+          curl -L \
+            https://github.com/theos/sdks/releases/download/iPhoneOS16.5/iPhoneOS16.5.sdk.tar.xz \
+            -o /tmp/sdk.tar.xz
+          tar -xf /tmp/sdk.tar.xz \
+            -C $HOME/theos/sdks/
+
+      - name: Build dylib
+        script: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$PATH
+          make clean
+          make FINALPACKAGE=1 \
+               THEOS_PACKAGE_SCHEME=rootless
+
+      - name: Find dylib
+        script: |
+          DYLIB=$(find .theos -name \
+            "FloatSwitcher.dylib" | head -1)
+          echo "Found: $DYLIB"
+          cp "$DYLIB" FloatSwitcher.dylib
+          ls -lh FloatSwitcher.dylib
+
+    artifacts:
+      - FloatSwitcher.dylib
